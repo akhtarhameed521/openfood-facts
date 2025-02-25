@@ -26,12 +26,20 @@ const Product = mongoose.model('openfoodfacts-products', productSchema);
 
 app.get('/api/products', async (req, res) => {
   try {
-    const { code, name, brand, page = 1, limit = 10 } = req.query;
+    const { code, name, brand, halal, page = 1, limit = 10 } = req.query;
     const query = {};
 
     if (code) query.code = code;
     if (name) query.product_name = { $regex: name, $options: 'i' };
     if (brand) query.brands = { $regex: brand, $options: 'i' };
+
+    if (halal === 'true') {
+      // Haram ingredients to filter out
+      const haramIngredients = /pork|gelatin|alcohol|beer|wine|rum|bacon|ham|lard|E120|E441|E542|E904|carmine|cochineal/i;
+
+      query.ingredients_text = { $not: haramIngredients }; // Exclude haram ingredients
+      query.traces = { $not: /pork|alcohol/i }; // Exclude cross-contaminated products
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await Product.countDocuments(query);
@@ -48,6 +56,8 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ error: 'Error fetching products', message: error.message });
   }
 });
+
+
 
 
 app.get('/api/products/:code', async (req, res) => {
